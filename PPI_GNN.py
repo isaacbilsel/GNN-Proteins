@@ -1,3 +1,13 @@
+# Install all PyTorch Geometric dependencies (CPU version)
+"""
+pip install --upgrade pip setuptools wheel
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install torch_geometric
+pip install scikit-learn
+pip install matplotlib
+"""
+
+
 # Import libraries and load data
 import torch
 import torch.nn as nn
