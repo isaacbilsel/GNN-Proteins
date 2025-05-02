@@ -146,7 +146,7 @@ class GAT(nn.Module):
         self.gat1 = GATConv(in_feats, hidden_feats, heads=heads)
         self.gat2 = GATConv(hidden_feats * heads, hidden_feats, heads=heads)
         self.gat3 = GATConv(hidden_feats * heads, out_feats, heads=1)
-        self.activation = nn.RELU()
+        self.activation = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
 
     def forward(self, x, edge_index):
