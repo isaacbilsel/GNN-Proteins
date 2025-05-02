@@ -172,6 +172,32 @@ class GAT(nn.Module):
         x = self.gat4(x, edge_index)
         return x
 
+class HybridGNN(nn.Module):
+    def __init__(self, in_feats, hidden_feats, out_feats, num_classes, heads=4):
+        super(HybridGNN, self).__init__()
+        self.sage_branch = DeepGraphSAGE(in_feats, hidden_feats, out_feats)
+        self.gat_branch = GAT(in_feats, hidden_feats, out_feats, heads=heads)
+
+        # Final classifier after concatenating both GNN outputs
+        self.classifier = nn.Linear(2 * out_feats, num_classes)
+        self.dropout = nn.Dropout(0.5)
+
+    def forward(self, x, edge_index, batch):
+        # Get DeepGraphSAGE output
+        out_sage = self.sage_branch(x, edge_index, batch)
+
+        # Get GAT output
+        out_gat = self.gat_branch(x, edge_index)
+
+        # Concatenate along feature dimension
+        out = torch.cat([out_sage, out_gat], dim=1)
+
+        # Optional classifier and sigmoid for multi-label classification
+        out = self.dropout(out)
+        out = self.classifier(out)
+        out = torch.sigmoid(out)
+        return out
+
 # Evaluation helper
 def evaluate(model, loader):
     model.eval()
@@ -233,7 +259,26 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
 
 #### Driver Code ####
 
+## Run Hybrid GAT-GraphSage model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+in_feats = train_dataset.num_node_features
+out_feats = train_dataset.num_classes
+hidden_feats = 256
+model = HybridGNN(in_feats, hidden_feats, out_feats, 121).to(device)
+optimizer = optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
 
+# Train the GAT model
+train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100, patience=20)
+
+# Final test performance
+val_f1 = evaluate(model, val_loader)
+test_f1 = evaluate(model, test_loader)
+print(f"\nValidation F1: {val_f1:.4f}")
+print(f"Test F1: {test_f1:.4f}")
+plot_graphs(train_losses, val_f1_scores)
+
+"""
 # Run GAT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 in_feats = train_dataset.num_node_features
@@ -252,6 +297,7 @@ test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
+"""
 
 """
 # Run GraphSAGE 
