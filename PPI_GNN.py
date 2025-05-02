@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch_geometric.datasets import PPI
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import SAGEConv
+from torch_geometric.nn import SAGEConv, GraphNorm
 from sklearn.metrics import f1_score
 import matplotlib.pyplot as plt
 from torch_geometric.nn import GATConv, GATv2Conv
