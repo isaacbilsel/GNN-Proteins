@@ -194,7 +194,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index)
+            out = model(batch.x, batch.edge_index, batch.batch)
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
