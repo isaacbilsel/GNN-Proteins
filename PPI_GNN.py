@@ -179,7 +179,7 @@ def evaluate(model, loader):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index """, batch.batch"""))  # Apply sigmoid here
+            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid here # batch.batch argument if DeepGraphSAGE
             preds = (out > 0.5).float()
             f1 = f1_score(batch.y.cpu().numpy(), preds.cpu().numpy(), average='micro')
             total_f1 += f1
@@ -200,7 +200,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index """, batch.batch""")
+            out = model(batch.x, batch.edge_index)  # batch.batch argument if DeepGraphSAGE
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
