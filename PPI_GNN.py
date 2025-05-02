@@ -238,7 +238,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 in_feats = train_dataset.num_node_features
 out_feats = train_dataset.num_classes
-hidden_feats = 512
+hidden_feats = 256
 model = GAT(in_feats, hidden_feats, out_feats).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
 loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
