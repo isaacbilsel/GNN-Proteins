@@ -143,9 +143,10 @@ class DeepGraphSAGE(nn.Module):
 class GAT(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats, heads=4):
         super(GAT, self).__init__()
-        self.gat1 = GATv2Conv(in_feats, hidden_feats, heads=heads)
-        self.gat2 = GATv2Conv(hidden_feats * heads, hidden_feats, heads=heads)
-        self.gat3 = GATv2Conv(hidden_feats * heads, out_feats, heads=1)
+        self.gat1 = GATConv(in_feats, hidden_feats, heads=heads)
+        self.gat2 = GATConv(hidden_feats * heads, hidden_feats, heads=heads)
+        self.gat3 = GATConv(hidden_feats * heads, hidden_feats, heads=heads)
+        self.gat4 = GATConv(hidden_feats * heads, out_feats, heads=1)
         self.activation = nn.ELU()
         self.dropout = nn.Dropout(0.5)
 
@@ -159,6 +160,10 @@ class GAT(nn.Module):
         x = self.dropout(x)
 
         x = self.gat3(x, edge_index)
+        x = self.activation(x)
+        x = self.dropout(x)
+
+        x = self.gat4(x, edge_index)
         return x
 
 # Evaluation helper
