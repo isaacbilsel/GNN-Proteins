@@ -107,32 +107,32 @@ class DeepGraphSAGE(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats):
         super(DeepGraphSAGE, self).__init__()
         self.conv1 = SAGEConv(in_feats, hidden_feats)
-        self.bn1 = nn.GraphNorm(hidden_feats)
+        self.norm1 = GraphNorm(hidden_feats)
 
         self.conv2 = SAGEConv(hidden_feats, hidden_feats)
-        self.bn2 = nn.GraphNorm(hidden_feats)
+        self.norm2 = GraphNorm(hidden_feats)
 
         self.conv3 = SAGEConv(hidden_feats, hidden_feats)
-        self.bn3 = nn.GraphNorm(hidden_feats)
+        self.norm3 = GraphNorm(hidden_feats)
 
         self.conv4 = SAGEConv(hidden_feats, out_feats)
 
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)
-        x = self.bn1(x)
+        x = self.norm1(x, batch)
         x = self.relu(x)
         x = self.dropout(x)
 
         x = self.conv2(x, edge_index)
-        x = self.bn2(x)
+        x = self.norm2(x, batch)
         x = self.relu(x)
         x = self.dropout(x)
 
         x = self.conv3(x, edge_index)
-        x = self.bn3(x)
+        x = self.norm3(x, batch)
         x = self.relu(x)
         x = self.dropout(x)
 
