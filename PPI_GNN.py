@@ -17,7 +17,7 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.nn import SAGEConv
 from sklearn.metrics import f1_score
 import matplotlib.pyplot as plt
-from torch_geometric.nn import GATConv, GATv2
+from torch_geometric.nn import GATConv, GATv2Conv
 import copy
 
 # Load train, val, and test sets
@@ -143,9 +143,9 @@ class DeepGraphSAGE(nn.Module):
 class GAT(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats, heads=4):
         super(GAT, self).__init__()
-        self.gat1 = GATv2(in_feats, hidden_feats, heads=heads)
-        self.gat2 = GATv2(hidden_feats * heads, hidden_feats, heads=heads)
-        self.gat3 = GATv2(hidden_feats * heads, out_feats, heads=1)
+        self.gat1 = GATv2Conv(in_feats, hidden_feats, heads=heads)
+        self.gat2 = GATv2Conv(hidden_feats * heads, hidden_feats, heads=heads)
+        self.gat3 = GATv2Conv(hidden_feats * heads, out_feats, heads=1)
         self.activation = nn.ELU()
         self.dropout = nn.Dropout(0.5)
 
