@@ -144,22 +144,28 @@ class GAT(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats, heads=4):
         super(GAT, self).__init__()
         self.gat1 = GATConv(in_feats, hidden_feats, heads=heads)
+        self.norm1 = nn.LayerNorm(hidden_feats * heads)
         self.gat2 = GATConv(hidden_feats * heads, hidden_feats, heads=heads)
+        self.norm2 = nn.LayerNorm(hidden_feats * heads)
         self.gat3 = GATConv(hidden_feats * heads, hidden_feats, heads=heads)
+        self.norm3 = nn.LayerNorm(hidden_feats * heads)
         self.gat4 = GATConv(hidden_feats * heads, out_feats, heads=1)
         self.activation = nn.ELU()
         self.dropout = nn.Dropout(0.5)
 
     def forward(self, x, edge_index):
         x = self.gat1(x, edge_index)
+        x = self.norm1(x)
         x = self.activation(x)
         x = self.dropout(x)
 
         x = self.gat2(x, edge_index)
+        x = self.norm2(x)
         x = self.activation(x)
         x = self.dropout(x)
 
         x = self.gat3(x, edge_index)
+        x = self.norm3(x)
         x = self.activation(x)
         x = self.dropout(x)
 
