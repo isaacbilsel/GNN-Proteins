@@ -107,13 +107,13 @@ class DeepGraphSAGE(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats):
         super(DeepGraphSAGE, self).__init__()
         self.conv1 = SAGEConv(in_feats, hidden_feats)
-        self.bn1 = nn.BatchNorm1d(hidden_feats)
+        self.bn1 = nn.GraphNorm(hidden_feats)
 
         self.conv2 = SAGEConv(hidden_feats, hidden_feats)
-        self.bn2 = nn.BatchNorm1d(hidden_feats)
+        self.bn2 = nn.GraphNorm(hidden_feats)
 
         self.conv3 = SAGEConv(hidden_feats, hidden_feats)
-        self.bn3 = nn.BatchNorm1d(hidden_feats)
+        self.bn3 = nn.GraphNorm(hidden_feats)
 
         self.conv4 = SAGEConv(hidden_feats, out_feats)
 
