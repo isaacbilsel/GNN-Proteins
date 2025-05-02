@@ -233,7 +233,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
 
 #### Driver Code ####
 
-"""
+
 # Run GAT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 in_feats = train_dataset.num_node_features
@@ -252,7 +252,7 @@ test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-"""
+
 """
 # Run GraphSAGE 
 # Init model, optimizer, loss
@@ -275,7 +275,7 @@ print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-
+"""
 # Run DeepGraphSAGE
 # Init
 in_feats = train_dataset.num_node_features
@@ -295,7 +295,7 @@ test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-
+"""
 
 
 """
