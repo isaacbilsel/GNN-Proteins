@@ -195,7 +195,7 @@ class HybridGNN(nn.Module):
         # Optional classifier and sigmoid for multi-label classification
         out = self.dropout(out)
         out = self.classifier(out)
-        out = torch.sigmoid(out)
+        # out = torch.sigmoid(out)
         return out
 
 # Evaluation helper
