@@ -173,7 +173,7 @@ def evaluate(model, loader):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid here
+            out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch))  # Apply sigmoid here
             preds = (out > 0.5).float()
             f1 = f1_score(batch.y.cpu().numpy(), preds.cpu().numpy(), average='micro')
             total_f1 += f1
