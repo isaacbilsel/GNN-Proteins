@@ -61,7 +61,7 @@ axs[1].bar(range(len(class_weights)), class_weights.cpu().numpy())
 axs[1].set_title("Class Weights for Loss Function")
 axs[1].set_xlabel("Class Index")
 axs[1].set_ylabel("Weight")
-plt.show()
+# plt.show()
 
 # Training curve function
 def plot_graphs(train_losses, val_f1_scores):
@@ -93,7 +93,7 @@ class GraphSAGE(nn.Module):
         self.conv1 = SAGEConv(in_feats, hidden_feats)
         self.conv2 = SAGEConv(hidden_feats, out_feats)
         self.activation = nn.ReLU()
-        self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
@@ -262,7 +262,7 @@ def evaluate(model, loader):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
+            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
             preds = (out > 0.5).float()
 
             y_true = batch.y.cpu().numpy()
@@ -293,7 +293,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index, batch.batch)     # batch argument for graphnorm
+            out = model(batch.x, batch.edge_index)     # batch argument for graphnorm
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
@@ -369,7 +369,6 @@ print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-"""
 # Run GraphSAGE 
 # Init model, optimizer, loss
 in_feats = train_dataset.num_node_features
@@ -388,10 +387,9 @@ val_f1 = evaluate(model, val_loader)
 test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
-plot_graphs(train_losses, val_f1_scores)
+# plot_graphs(train_losses, val_f1_scores)
+
 """
-
-
 # Run DeepGraphSAGE
 # Init
 in_feats = train_dataset.num_node_features
@@ -413,6 +411,7 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
+"""
 
 """
 # Visualize predictions for the first graph in test set

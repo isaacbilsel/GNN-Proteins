@@ -303,7 +303,7 @@ def evaluate(model, loader):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
+            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
             preds = (out > 0.5).float()
 
             y_true = batch.y.cpu().numpy()
@@ -334,7 +334,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index, batch.batch)     # batch argument for graphnorm
+            out = model(batch.x, batch.edge_index)     # batch argument for graphnorm
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
