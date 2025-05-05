@@ -134,7 +134,7 @@ class GraphSAGE(nn.Module):
         self.conv1 = SAGEConv(in_feats, hidden_feats)
         self.conv2 = SAGEConv(hidden_feats, out_feats)
         self.activation = nn.ReLU()
-        self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
@@ -408,10 +408,8 @@ print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-""" # Run GraphSAGE 
+# Run GraphSAGE 
 # Init model, optimizer, loss
-# in_feats = train_dataset.num_node_features
-# out_feats = train_dataset.num_classes
 hidden_feats = 512
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = GraphSAGE(in_feats, hidden_feats, out_feats).to(device)
@@ -427,8 +425,8 @@ test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-"""
 
+"""
 # Run DeepGraphSAGE
 # Init
 # in_feats = train_dataset.num_node_features
@@ -450,7 +448,7 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-
+"""
 
 """
 # Visualize predictions for the first graph in test set
