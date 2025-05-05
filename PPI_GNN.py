@@ -397,7 +397,7 @@ out_feats = train_dataset.num_classes
 hidden_feats = 512
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DeepGraphSAGE(in_feats, hidden_feats, out_feats).to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=5e-4)
+optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-4)
 loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
 
 # Train
