@@ -121,7 +121,7 @@ class DeepGraphSAGE(nn.Module):
         self.conv5 = SAGEConv(hidden_feats, out_feats)
 
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.25)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)
@@ -210,20 +210,34 @@ class HybridGNN(nn.Module):
 def evaluate(model, loader):
     model.eval()
     total_f1 = 0
+    total_precision = 0
+    total_recall = 0
+
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch))  # Apply sigmoid here # batch.batch argument if DeepGraphSAGE
+            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid
             preds = (out > 0.5).float()
-            f1 = f1_score(batch.y.cpu().numpy(), preds.cpu().numpy(), average='micro')
+
+            y_true = batch.y.cpu().numpy()
+            y_pred = preds.cpu().numpy()
+
+            f1 = f1_score(y_true, y_pred, average='micro')
+            precision = precision_score(y_true, y_pred, average='micro', zero_division=0)
+            recall = recall_score(y_true, y_pred, average='micro', zero_division=0)
+
             total_f1 += f1
-    return total_f1 / len(loader)
+            total_precision += precision
+            total_recall += recall
+
+    n_batches = len(loader)
+    return total_f1 / n_batches, total_precision / n_batches, total_recall / n_batches
+
 
 # Training function
-def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100, patience=15):
+def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100, patience=20):
     train_losses = []
     val_f1_scores = []
-
     best_val_f1 = 0
     best_model_state = None
     epochs_without_improvement = 0
@@ -234,19 +248,19 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index, batch.batch)  # batch.batch argument if DeepGraphSAGE
+            out = model(batch.x, batch.edge_index)
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
 
         avg_loss = total_loss / len(train_loader)
-        val_f1 = evaluate(model, val_loader)
+        val_f1, precision, recall = evaluate(model, val_loader)
 
         train_losses.append(avg_loss)
         val_f1_scores.append(val_f1)
 
-        print(f"Epoch {epoch}/{epochs}, Loss: {avg_loss:.4f}, Val F1: {val_f1:.4f}")
+        print(f"Epoch {epoch}/{epochs}, Loss: {avg_loss:.4f}, Val F1: {val_f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
 
         # Early stopping check
         if val_f1 > best_val_f1:
@@ -337,19 +351,20 @@ out_feats = train_dataset.num_classes
 hidden_feats = 512
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DeepGraphSAGE(in_feats, hidden_feats, out_feats).to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=5e-4)
 loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
 
 # Train
 train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
 
 # Validate and Test
-val_f1 = evaluate(model, val_loader)
-test_f1 = evaluate(model, test_loader)
+val_f1, val_recall, val_precision = evaluate(model, val_loader)
+test_f1, test_recall, test_precision = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
+print(f"Test Precision: {test_precision:.4f}")
+print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-
 
 
 """
