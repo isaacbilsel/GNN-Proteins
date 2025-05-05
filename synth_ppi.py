@@ -53,7 +53,7 @@ def generate_synthetic_pyg_graph(num_nodes, in_feats, num_classes, avg_degree=5)
     return Data(x=x, edge_index=edge_index, y=y)
 
 # Generate synthetic graphs
-num_synthetic_graphs = 20
+num_synthetic_graphs = 5
 num_nodes_per_graph = 600
 synthetic_graphs = [
     generate_synthetic_pyg_graph(num_nodes_per_graph, train_dataset.num_node_features, train_dataset.num_classes)
