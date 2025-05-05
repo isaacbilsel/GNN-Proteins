@@ -15,7 +15,7 @@ import torch.optim as optim
 from torch_geometric.datasets import PPI
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import SAGEConv, GraphNorm
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 import matplotlib.pyplot as plt
 from torch_geometric.nn import GATConv, GATv2Conv
 import copy
@@ -115,10 +115,13 @@ class DeepGraphSAGE(nn.Module):
         self.conv3 = SAGEConv(hidden_feats, hidden_feats)
         self.norm3 = GraphNorm(hidden_feats)
 
-        self.conv4 = SAGEConv(hidden_feats, out_feats)
+        self.conv4 = SAGEConv(hidden_feats, hidden_feats)
+        self.norm4 = GraphNorm(hidden_feats)
+
+        self.conv5 = SAGEConv(hidden_feats, out_feats)
 
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.25)
 
     def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)
@@ -136,7 +139,12 @@ class DeepGraphSAGE(nn.Module):
         x = self.relu(x)
         x = self.dropout(x)
 
-        x = self.conv4(x, edge_index)  # NOTE: no sigmoid here
+        x = self.conv4(x, edge_index)
+        x = self.norm4(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv5(x, edge_index)  # NOTE: no sigmoid here
         return x
     
 # GAT model definition
@@ -258,7 +266,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
     return train_losses, val_f1_scores
 
 #### Driver Code ####
-
+"""
 ## Run Hybrid GAT-GraphSage model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 in_feats = train_dataset.num_node_features
@@ -277,7 +285,7 @@ test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-
+"""
 """
 # Run GAT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -321,7 +329,7 @@ print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-"""
+
 # Run DeepGraphSAGE
 # Init
 in_feats = train_dataset.num_node_features
@@ -341,7 +349,7 @@ test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-"""
+
 
 
 """
