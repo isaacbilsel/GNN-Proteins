@@ -102,7 +102,7 @@ class GraphSAGE(nn.Module):
         x = self.conv2(x, edge_index)
         return x
     
-"""# DeepGraphSAGE model definition -- with GraphNorm layer norm
+# DeepGraphSAGE model definition -- with GraphNorm layer norm
 class DeepGraphSAGE(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats):
         super(DeepGraphSAGE, self).__init__()
@@ -146,9 +146,8 @@ class DeepGraphSAGE(nn.Module):
 
         x = self.conv5(x, edge_index)  # NOTE: no sigmoid here
         return x
-    """
 
-# DeepGraphSAGE model definition
+""" # DeepGraphSAGE model definition -- batchnorm
 class DeepGraphSAGE(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats):
         super(DeepGraphSAGE, self).__init__()
@@ -192,7 +191,8 @@ class DeepGraphSAGE(nn.Module):
 
         x = self.conv5(x, edge_index)  # NOTE: no sigmoid here
         return x
-    
+"""
+
 # GAT model definition
 class GAT(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats, heads=4):
@@ -262,7 +262,7 @@ def evaluate(model, loader):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid
+            out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
             preds = (out > 0.5).float()
 
             y_true = batch.y.cpu().numpy()
@@ -294,7 +294,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index)
+            out = model(batch.x, batch.edge_index, batch.batch)     # batch argument for graphnorm
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
