@@ -207,19 +207,19 @@ class GAT(nn.Module):
         self.activation = nn.ELU()
         self.dropout = nn.Dropout(0.2)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, batch):
         x = self.gat1(x, edge_index)
-        x = self.norm1(x)
+        x = self.norm1(x, batch)
         x = self.activation(x)
         x = self.dropout(x)
 
         x = self.gat2(x, edge_index)
-        x = self.norm2(x)
+        x = self.norm2(x, batch)
         x = self.activation(x)
         x = self.dropout(x)
 
         x = self.gat3(x, edge_index)
-        x = self.norm3(x)
+        x = self.norm3(x, batch)
         x = self.activation(x)
         x = self.dropout(x)
 
@@ -359,10 +359,12 @@ loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Chan
 train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
 
 # Final test performance
-val_f1 = evaluate(model, val_loader)
-test_f1 = evaluate(model, test_loader)
+val_f1, val_recall, val_precision = evaluate(model, val_loader)
+test_f1, test_recall, test_precision = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
+print(f"Test Precision: {test_precision:.4f}")
+print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 
 
