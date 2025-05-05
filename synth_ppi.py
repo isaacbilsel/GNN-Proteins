@@ -420,11 +420,13 @@ loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights)                # Change
 train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
 
 # Final test evaluation
-val_f1 = evaluate(model, val_loader)
-test_f1 = evaluate(model, test_loader)
+val_f1, val_recall, val_precision = evaluate(model, val_loader)
+test_f1, test_recall, test_precision = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
-plot_graphs(train_losses, val_f1_scores)
+print(f"Test Precision: {test_precision:.4f}")
+print(f"Test Recall: {test_recall:.4f}")
+# plot_graphs(train_losses, val_f1_scores)
 
 """
 # Run DeepGraphSAGE
