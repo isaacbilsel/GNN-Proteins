@@ -205,7 +205,7 @@ class GAT(nn.Module):
         self.norm3 = GraphNorm(hidden_feats * heads)
         self.gat4 = GATConv(hidden_feats * heads, out_feats, heads=1)
         self.activation = nn.ELU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x, edge_index):
         x = self.gat1(x, edge_index)
@@ -279,9 +279,8 @@ def evaluate(model, loader):
     n_batches = len(loader)
     return total_f1 / n_batches, total_precision / n_batches, total_recall / n_batches
 
-
 # Training function
-def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100, patience=20):
+def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125, patience=15):
     train_losses = []
     val_f1_scores = []
     best_val_f1 = 0
@@ -346,18 +345,18 @@ print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
-"""
+
 # Run GAT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 in_feats = train_dataset.num_node_features
 out_feats = train_dataset.num_classes
-hidden_feats = 256
+hidden_feats = 512
 model = GAT(in_feats, hidden_feats, out_feats).to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-4)
 loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
 
 # Train the GAT model
-train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100, patience=20)
+train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
 
 # Final test performance
 val_f1 = evaluate(model, val_loader)
@@ -365,17 +364,17 @@ test_f1 = evaluate(model, test_loader)
 print(f"\nValidation F1: {val_f1:.4f}")
 print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-"""
+
 
 """
 # Run GraphSAGE 
 # Init model, optimizer, loss
 in_feats = train_dataset.num_node_features
 out_feats = train_dataset.num_classes
-hidden_feats = 256
+hidden_feats = 512
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = GraphSAGE(in_feats, hidden_feats, out_feats).to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-4)
 loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights)                # Changed from:  loss_fn = nn.BCELoss()
 
 # Train
@@ -389,7 +388,7 @@ print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-
+"""
 # Run DeepGraphSAGE
 # Init
 in_feats = train_dataset.num_node_features
@@ -401,7 +400,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-4)
 loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
 
 # Train
-train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125)
+train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
 
 # Validate and Test
 val_f1, val_recall, val_precision = evaluate(model, val_loader)
@@ -411,7 +410,7 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-
+"""
 
 """
 # Visualize predictions for the first graph in test set
