@@ -102,7 +102,7 @@ class GraphSAGE(nn.Module):
         x = self.conv2(x, edge_index)
         return x
     
-# DeepGraphSAGE model definition
+"""# DeepGraphSAGE model definition -- with GraphNorm layer norm
 class DeepGraphSAGE(nn.Module):
     def __init__(self, in_feats, hidden_feats, out_feats):
         super(DeepGraphSAGE, self).__init__()
@@ -141,6 +141,52 @@ class DeepGraphSAGE(nn.Module):
 
         x = self.conv4(x, edge_index)
         x = self.norm4(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv5(x, edge_index)  # NOTE: no sigmoid here
+        return x
+    """
+
+# DeepGraphSAGE model definition
+class DeepGraphSAGE(nn.Module):
+    def __init__(self, in_feats, hidden_feats, out_feats):
+        super(DeepGraphSAGE, self).__init__()
+        self.conv1 = SAGEConv(in_feats, hidden_feats)
+        self.bn1 = nn.BatchNorm1d(hidden_feats)
+
+        self.conv2 = SAGEConv(hidden_feats, hidden_feats)
+        self.bn2 = nn.BatchNorm1d(hidden_feats)
+
+        self.conv3 = SAGEConv(hidden_feats, hidden_feats)
+        self.bn3 = nn.BatchNorm1d(hidden_feats)
+
+        self.conv4 = SAGEConv(hidden_feats, hidden_feats)
+        self.bn4 = nn.BatchNorm1d(hidden_feats)
+
+        self.conv5 = SAGEConv(hidden_feats, out_feats)
+
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.20)
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv2(x, edge_index)
+        x = self.bn2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv3(x, edge_index)
+        x = self.bn3(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv4(x, edge_index)
+        x = self.bn4(x)
         x = self.relu(x)
         x = self.dropout(x)
 
