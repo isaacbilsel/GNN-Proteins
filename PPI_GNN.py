@@ -401,7 +401,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=5e-4)
 loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
 
 # Train
-train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
+train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125)
 
 # Validate and Test
 val_f1, val_recall, val_precision = evaluate(model, val_loader)
