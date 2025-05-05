@@ -346,6 +346,7 @@ print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
+"""
 # Run GAT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 in_feats = train_dataset.num_node_features
@@ -366,7 +367,7 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-
+"""
 
 """
 # Run GraphSAGE 
@@ -390,7 +391,7 @@ print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-"""
+
 # Run DeepGraphSAGE
 # Init
 in_feats = train_dataset.num_node_features
@@ -412,7 +413,6 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-"""
 
 """
 # Visualize predictions for the first graph in test set
@@ -435,4 +435,4 @@ for i in range(num_nodes_to_plot):
     plt.legend()
     plt.show()
 
-    """
+"""

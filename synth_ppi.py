@@ -53,7 +53,7 @@ def generate_synthetic_pyg_graph(num_nodes, in_feats, num_classes, avg_degree=5)
     return Data(x=x, edge_index=edge_index, y=y)
 
 # Generate synthetic graphs
-num_synthetic_graphs = 5
+num_synthetic_graphs = 20
 num_nodes_per_graph = 600
 synthetic_graphs = [
     generate_synthetic_pyg_graph(num_nodes_per_graph, train_dataset.num_node_features, train_dataset.num_classes)
@@ -366,8 +366,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
     return train_losses, val_f1_scores
 
 # ---- Driver Code ---- #
-"""
-## Run Hybrid GAT-GraphSage model
+""" ## Run Hybrid GAT-GraphSage model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # in_feats = train_dataset.num_node_features
 # out_feats = train_dataset.num_classes
@@ -387,7 +386,7 @@ print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-# Run GAT model
+"""# Run GAT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # in_feats = train_dataset.num_node_features
 # out_feats = train_dataset.num_classes
@@ -407,10 +406,9 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-
-
 """
-# Run GraphSAGE 
+
+""" # Run GraphSAGE 
 # Init model, optimizer, loss
 # in_feats = train_dataset.num_node_features
 # out_feats = train_dataset.num_classes
@@ -431,7 +429,6 @@ print(f"Test F1: {test_f1:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-"""
 # Run DeepGraphSAGE
 # Init
 # in_feats = train_dataset.num_node_features
@@ -453,7 +450,7 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-"""
+
 
 """
 # Visualize predictions for the first graph in test set
