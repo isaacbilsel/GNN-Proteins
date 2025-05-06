@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch_geometric.datasets import PPI
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import SAGEConv, GraphNorm
+from torch_geometric.nn import SAGEConv, GraphNorm, GCNConv
 from sklearn.metrics import f1_score, precision_score, recall_score
 import matplotlib.pyplot as plt
 from torch_geometric.nn import GATConv, GATv2Conv
@@ -126,6 +126,29 @@ def plot_graphs(train_losses, val_f1_scores):
 
     plt.tight_layout()
     plt.show()
+
+#GCN Model definition
+class GCN(nn.Module):
+    def __init__(self, in_feats, hidden_feats, out_feats):
+        super(GCN, self).__init__()
+        self.conv1 = GCNConv(in_feats, hidden_feats)
+        self.conv2 = GCNConv(hidden_feats, hidden_feats)
+        self.conv3 = GCNConv(hidden_feats, out_feats)
+
+        self.activation = nn.ReLU()
+        self.dropout = nn.Dropout(0.2)
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index)
+        x = self.activation(x)
+        x = self.dropout(x)
+
+        x = self.conv2(x, edge_index)
+        x = self.activation(x)
+        x = self.dropout(x)
+
+        x = self.conv3(x, edge_index)
+        return x
 
 # GraphSAGE model definition
 class GraphSAGE(nn.Module):
@@ -366,6 +389,28 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
     return train_losses, val_f1_scores
 
 # ---- Driver Code ---- #
+
+# Run GCN (3-layer)
+# Run GraphSAGE 
+# Init model, optimizer, loss
+hidden_feats = 512
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = GCN(in_feats, hidden_feats, out_feats).to(device)
+optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-4)
+loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights)                # Changed from:  loss_fn = nn.BCELoss()
+
+# Train
+train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
+
+# Final test evaluation
+val_f1, val_recall, val_precision = evaluate(model, val_loader)
+test_f1, test_recall, test_precision = evaluate(model, test_loader)
+print(f"\nValidation F1: {val_f1:.4f}")
+print(f"Test F1: {test_f1:.4f}")
+print(f"Test Precision: {test_precision:.4f}")
+print(f"Test Recall: {test_recall:.4f}")
+# plot_graphs(train_losses, val_f1_scores)
+
 """ ## Run Hybrid GAT-GraphSage model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # in_feats = train_dataset.num_node_features
@@ -408,7 +453,7 @@ print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
 """
 
-# Run GraphSAGE 
+""" # Run GraphSAGE 
 # Init model, optimizer, loss
 hidden_feats = 512
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -427,9 +472,9 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 # plot_graphs(train_losses, val_f1_scores)
-
 """
-# Run DeepGraphSAGE
+
+""" # Run DeepGraphSAGE
 # Init
 # in_feats = train_dataset.num_node_features
 # out_feats = train_dataset.num_classes
