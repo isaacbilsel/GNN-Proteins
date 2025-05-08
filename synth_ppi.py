@@ -12,6 +12,7 @@ pip install matplotlib
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 from torch_geometric.datasets import PPI
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import SAGEConv, GraphNorm, GCNConv, GATConv, MessagePassing
