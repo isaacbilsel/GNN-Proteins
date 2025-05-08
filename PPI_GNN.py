@@ -12,12 +12,13 @@ pip install matplotlib
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 from torch_geometric.datasets import PPI
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import SAGEConv, GraphNorm, GCNConv
+from torch_geometric.nn import SAGEConv, GCNConv, GATConv, GraphNorm, MessagePassing
+from torch_geometric.utils import softmax, scatter
 from sklearn.metrics import f1_score, precision_score, recall_score
 import matplotlib.pyplot as plt
-from torch_geometric.nn import GATConv, GATv2Conv
 import copy
 
 # Load train, val, and test sets
@@ -85,6 +86,9 @@ def plot_graphs(train_losses, val_f1_scores):
 
     plt.tight_layout()
     plt.show()
+
+
+# ---- Models ----
 
 # GCN Model definition
 class GCN(nn.Module):
@@ -167,54 +171,8 @@ class DeepGraphSAGE(nn.Module):
         x = self.relu(x)
         x = self.dropout(x)
 
-        x = self.conv5(x, edge_index)  # NOTE: no sigmoid here
+        x = self.conv5(x, edge_index)
         return x
-
-""" # DeepGraphSAGE model definition -- batchnorm
-class DeepGraphSAGE(nn.Module):
-    def __init__(self, in_feats, hidden_feats, out_feats):
-        super(DeepGraphSAGE, self).__init__()
-        self.conv1 = SAGEConv(in_feats, hidden_feats)
-        self.bn1 = nn.BatchNorm1d(hidden_feats)
-
-        self.conv2 = SAGEConv(hidden_feats, hidden_feats)
-        self.bn2 = nn.BatchNorm1d(hidden_feats)
-
-        self.conv3 = SAGEConv(hidden_feats, hidden_feats)
-        self.bn3 = nn.BatchNorm1d(hidden_feats)
-
-        self.conv4 = SAGEConv(hidden_feats, hidden_feats)
-        self.bn4 = nn.BatchNorm1d(hidden_feats)
-
-        self.conv5 = SAGEConv(hidden_feats, out_feats)
-
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.20)
-
-    def forward(self, x, edge_index):
-        x = self.conv1(x, edge_index)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.conv2(x, edge_index)
-        x = self.bn2(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.conv3(x, edge_index)
-        x = self.bn3(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.conv4(x, edge_index)
-        x = self.bn4(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.conv5(x, edge_index)  # NOTE: no sigmoid here
-        return x
-"""
 
 # GAT model definition
 class GAT(nn.Module):
@@ -249,31 +207,99 @@ class GAT(nn.Module):
         x = self.gat4(x, edge_index)
         return x
 
-class HybridGNN(nn.Module):
-    def __init__(self, in_feats, hidden_feats, out_feats, num_classes, heads=4):
-        super(HybridGNN, self).__init__()
-        self.sage_branch = DeepGraphSAGE(in_feats, hidden_feats, out_feats)
-        self.gat_branch = GAT(in_feats, hidden_feats, out_feats, heads=heads)
+# Attention-based GraphSAGE layer definition
+class LearnableAggregatorConv(MessagePassing):
+    def __init__(self, in_channels, out_channels, dropout=0.05):
+        super(LearnableAggregatorConv, self).__init__(aggr=None)  # Custom aggregation
+        self.lin = nn.Linear(in_channels, out_channels)
+        self.att_mlp = nn.Sequential(
+            nn.Linear(2 * out_channels, out_channels),
+            nn.LeakyReLU(0.1),
+            nn.Linear(out_channels, 1)
+        )
+        self.gate = nn.Sequential(
+            nn.Linear(out_channels * 3, out_channels),
+            nn.ReLU(),
+            nn.Linear(out_channels, 3)
+        )
 
-        # Final classifier after concatenating both GNN outputs
-        self.classifier = nn.Linear(2 * out_feats, num_classes)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, edge_index):
+        x = self.lin(x)
+        return self.propagate(edge_index, x=x)
+
+    def message(self, x_i, x_j, index, ptr, size_i):
+        # Attention aggregation
+        x_cat = torch.cat([x_i, x_j], dim=-1)
+        att_weight = self.att_mlp(x_cat).squeeze(-1)
+        att_weight = softmax(att_weight, index, ptr, size_i)
+        att_weight = self.dropout(att_weight)
+        att_msg = att_weight.unsqueeze(-1) * x_j
+        att_out = scatter(att_msg, index, dim=0, dim_size=size_i, reduce='sum')
+
+        # Mean aggregation
+        mean_out = scatter(x_j, index, dim=0, dim_size=size_i, reduce='mean')
+
+        # Max aggregation
+        max_out = scatter(x_j, index, dim=0, dim_size=size_i, reduce='max')
+
+        # Combine with gating 
+        cat_aggr = torch.cat([mean_out, max_out, att_out], dim=-1)  # [N, 3D]
+        gate_logits = self.gate(cat_aggr)  # [N, 3]
+        gate_weights = F.softmax(gate_logits, dim=-1)  # [N, 3]
+
+        # Apply weights
+        fused = (
+            gate_weights[:, 0:1] * mean_out +
+            gate_weights[:, 1:2] * max_out +
+            gate_weights[:, 2:3] * att_out
+        )
+        return fused
+
+    def update(self, aggr_out, x):
+        return aggr_out + x  # Optional residual
+    def aggregate(self, inputs, index, ptr=None, dim_size=None):
+        # This should never be called, as aggregation is done manually in `message`
+        return inputs
+
+# Hybrid Attention-based GraphSage GNN Model
+class HybridGNN(nn.Module):
+    def __init__(self, in_feats, hidden_feats, out_feats, dropout=0.05):
+        super(HybridGNN, self).__init__()
+        self.conv1 = LearnableAggregatorConv(in_feats, hidden_feats, dropout)
+        self.norm1 = GraphNorm(hidden_feats)
+
+        self.conv2 = LearnableAggregatorConv(hidden_feats, hidden_feats, dropout)
+        self.norm2 = GraphNorm(hidden_feats)
+
+        self.conv3 = LearnableAggregatorConv(hidden_feats, hidden_feats, dropout)
+        self.norm3 = GraphNorm(hidden_feats)
+
+        self.conv4 = LearnableAggregatorConv(hidden_feats, out_feats, dropout)
+
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, edge_index, batch):
-        # Get DeepGraphSAGE output
-        out_sage = self.sage_branch(x, edge_index, batch)
+        x = self.conv1(x, edge_index)
+        x = self.norm1(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
 
-        # Get GAT output
-        out_gat = self.gat_branch(x, edge_index)
+        x = self.conv2(x, edge_index)
+        x = self.norm2(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
 
-        # Concatenate along feature dimension
-        out = torch.cat([out_sage, out_gat], dim=1)
+        x = self.conv3(x, edge_index)
+        x = self.norm3(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
 
-        # Optional classifier and sigmoid for multi-label classification
-        out = self.dropout(out)
-        out = self.classifier(out)
-        # out = torch.sigmoid(out)
-        return out
+        x = self.conv4(x, edge_index)
+        return x 
+
 
 # Evaluation helper
 def evaluate(model, loader):
@@ -347,7 +373,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
 
     return train_losses, val_f1_scores
 
-#### Driver Code ####
+# ---- Driver Code ----
 
 """# Run GCN (3-layer)
 # Init model, optimizer, loss
