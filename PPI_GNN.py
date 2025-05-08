@@ -144,7 +144,7 @@ class DeepGraphSAGE(nn.Module):
         self.conv5 = SAGEConv(hidden_feats, out_feats)
 
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(0.05)
 
     def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)
@@ -285,7 +285,7 @@ def evaluate(model, loader):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
+            out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
             preds = (out > 0.5).float()
 
             y_true = batch.y.cpu().numpy()
@@ -316,7 +316,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index)     # batch argument for graphnorm
+            out = model(batch.x, batch.edge_index, batch.batch)     # batch argument for graphnorm
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
@@ -349,7 +349,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
 
 #### Driver Code ####
 
-# Run GCN (3-layer)
+"""# Run GCN (3-layer)
 # Init model, optimizer, loss
 hidden_feats = 512
 in_feats = train_dataset.num_node_features
@@ -370,6 +370,7 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 # plot_graphs(train_losses, val_f1_scores)
+"""
 
 """
 ## Run Hybrid GAT-GraphSage model
@@ -438,7 +439,7 @@ print(f"Test Recall: {test_recall:.4f}")
 # plot_graphs(train_losses, val_f1_scores)
 """
 
-""" # Run DeepGraphSAGE
+# Run DeepGraphSAGE
 # Init
 in_feats = train_dataset.num_node_features
 out_feats = train_dataset.num_classes
@@ -459,9 +460,9 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 plot_graphs(train_losses, val_f1_scores)
-"""
 
-"""
+
+
 # Visualize predictions for the first graph in test set
 model.eval()
 sample = test_dataset[0].to(device)
@@ -482,4 +483,4 @@ for i in range(num_nodes_to_plot):
     plt.legend()
     plt.show()
 
-"""
+

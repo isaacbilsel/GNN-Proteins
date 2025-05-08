@@ -14,10 +14,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch_geometric.datasets import PPI
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import SAGEConv, GraphNorm, GCNConv
+from torch_geometric.nn import SAGEConv, GraphNorm, GCNConv, GATConv, MessagePassing
+from torch_geometric.utils import softmax, scatter
 from sklearn.metrics import f1_score, precision_score, recall_score
 import matplotlib.pyplot as plt
-from torch_geometric.nn import GATConv, GATv2Conv
 import copy
 
 import networkx as nx
@@ -290,31 +290,98 @@ class GAT(nn.Module):
         x = self.gat4(x, edge_index)
         return x
 
-class HybridGNN(nn.Module):
-    def __init__(self, in_feats, hidden_feats, out_feats, num_classes, heads=4):
-        super(HybridGNN, self).__init__()
-        self.sage_branch = DeepGraphSAGE(in_feats, hidden_feats, out_feats)
-        self.gat_branch = GAT(in_feats, hidden_feats, out_feats, heads=heads)
+# Attention-based GraphSAGE layer definition
+class LearnableAggregatorConv(MessagePassing):
+    def __init__(self, in_channels, out_channels, dropout=0.05):
+        super(LearnableAggregatorConv, self).__init__(aggr=None)  # Custom aggregation
+        self.lin = nn.Linear(in_channels, out_channels)
+        self.att_mlp = nn.Sequential(
+            nn.Linear(2 * out_channels, out_channels),
+            nn.LeakyReLU(0.1),
+            nn.Linear(out_channels, 1)
+        )
+        self.gate = nn.Sequential(
+            nn.Linear(out_channels * 3, out_channels),
+            nn.ReLU(),
+            nn.Linear(out_channels, 3)
+        )
 
-        # Final classifier after concatenating both GNN outputs
-        self.classifier = nn.Linear(2 * out_feats, num_classes)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, edge_index):
+        x = self.lin(x)
+        return self.propagate(edge_index, x=x)
+
+    def message(self, x_i, x_j, index, ptr, size_i):
+        # --- Attention aggregation ---
+        x_cat = torch.cat([x_i, x_j], dim=-1)
+        att_weight = self.att_mlp(x_cat).squeeze(-1)
+        att_weight = softmax(att_weight, index, ptr, size_i)
+        att_weight = self.dropout(att_weight)
+        att_msg = att_weight.unsqueeze(-1) * x_j
+        att_out = scatter(att_msg, index, dim=0, dim_size=size_i, reduce='sum')
+
+        # --- Mean aggregation ---
+        mean_out = scatter(x_j, index, dim=0, dim_size=size_i, reduce='mean')
+
+        # --- Max aggregation ---
+        max_out = scatter(x_j, index, dim=0, dim_size=size_i, reduce='max')
+
+        # --- Combine with gating ---
+        cat_aggr = torch.cat([mean_out, max_out, att_out], dim=-1)  # [N, 3D]
+        gate_logits = self.gate(cat_aggr)  # [N, 3]
+        gate_weights = F.softmax(gate_logits, dim=-1)  # [N, 3]
+
+        # Apply weights
+        fused = (
+            gate_weights[:, 0:1] * mean_out +
+            gate_weights[:, 1:2] * max_out +
+            gate_weights[:, 2:3] * att_out
+        )
+        return fused
+
+    def update(self, aggr_out, x):
+        return aggr_out + x  # Optional residual
+    def aggregate(self, inputs, index, ptr=None, dim_size=None):
+        # This should never be called, as aggregation is done manually in `message`
+        return inputs
+
+# Hybrid Attention-based GraphSage GNN Model
+class HybridGNN(nn.Module):
+    def __init__(self, in_feats, hidden_feats, out_feats, dropout=0.05):
+        super(HybridGNN, self).__init__()
+        self.conv1 = LearnableAggregatorConv(in_feats, hidden_feats, dropout)
+        self.norm1 = GraphNorm(hidden_feats)
+
+        self.conv2 = LearnableAggregatorConv(hidden_feats, hidden_feats, dropout)
+        self.norm2 = GraphNorm(hidden_feats)
+
+        self.conv3 = LearnableAggregatorConv(hidden_feats, hidden_feats, dropout)
+        self.norm3 = GraphNorm(hidden_feats)
+
+        self.conv4 = LearnableAggregatorConv(hidden_feats, out_feats, dropout)
+
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, edge_index, batch):
-        # Get DeepGraphSAGE output
-        out_sage = self.sage_branch(x, edge_index, batch)
+        x = self.conv1(x, edge_index)
+        x = self.norm1(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
 
-        # Get GAT output
-        out_gat = self.gat_branch(x, edge_index)
+        x = self.conv2(x, edge_index)
+        x = self.norm2(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
 
-        # Concatenate along feature dimension
-        out = torch.cat([out_sage, out_gat], dim=1)
+        x = self.conv3(x, edge_index)
+        x = self.norm3(x, batch)
+        x = self.relu(x)
+        x = self.dropout(x)
 
-        # Optional classifier and sigmoid for multi-label classification
-        out = self.dropout(out)
-        out = self.classifier(out)
-        # out = torch.sigmoid(out)
-        return out
+        x = self.conv4(x, edge_index)
+        return x 
 
 # Evaluation helper
 def evaluate(model, loader):
@@ -326,7 +393,7 @@ def evaluate(model, loader):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            out = torch.sigmoid(model(batch.x, batch.edge_index))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
+            out = torch.sigmoid(model(batch.x, batch.edge_index, batch.batch))  # Apply sigmoid here for weigted BCE loss. # batch argument for graphnorm
             preds = (out > 0.5).float()
 
             y_true = batch.y.cpu().numpy()
@@ -357,7 +424,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.x, batch.edge_index)     # batch argument for graphnorm
+            out = model(batch.x, batch.edge_index, batch.batch)     # batch argument for graphnorm
             loss = loss_fn(out, batch.y)
             loss.backward()
             optimizer.step()
@@ -389,8 +456,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=125,
     return train_losses, val_f1_scores
 
 # ---- Driver Code ---- #
-
-# Run GCN (3-layer)
+"""# Run GCN (3-layer)
 # Init model, optimizer, loss
 hidden_feats = 512
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -409,28 +475,32 @@ print(f"Test F1: {test_f1:.4f}")
 print(f"Test Precision: {test_precision:.4f}")
 print(f"Test Recall: {test_recall:.4f}")
 # plot_graphs(train_losses, val_f1_scores)
-
-""" ## Run Hybrid GAT-GraphSage model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# in_feats = train_dataset.num_node_features
-# out_feats = train_dataset.num_classes
-hidden_feats = 256
-model = HybridGNN(in_feats, hidden_feats, out_feats, 121).to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
-loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
-
-# Train the GAT model
-train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn, epochs=100, patience=20)
-
-# Final test performance
-val_f1 = evaluate(model, val_loader)
-test_f1 = evaluate(model, test_loader)
-print(f"\nValidation F1: {val_f1:.4f}")
-print(f"Test F1: {test_f1:.4f}")
-plot_graphs(train_losses, val_f1_scores)
 """
 
-"""# Run GAT model
+# Run Hybrid Model
+# Init
+# in_feats = train_dataset.num_node_features
+# out_feats = train_dataset.num_classes
+hidden_feats = 512
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = HybridGNN(in_feats, hidden_feats, out_feats).to(device)
+optimizer = optim.Adam(model.parameters(), lr=0.002, weight_decay=1e-4)
+loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights.to(device))       # Changed from:  loss_fn = nn.BCELoss()
+
+# Train
+train_losses, val_f1_scores = train_model(model, train_loader, val_loader, optimizer, loss_fn)
+
+# Validate and Test
+val_f1, val_recall, val_precision = evaluate(model, val_loader)
+test_f1, test_recall, test_precision = evaluate(model, test_loader)
+print(f"\nValidation F1: {val_f1:.4f}")
+print(f"Test F1: {test_f1:.4f}")
+print(f"Test Precision: {test_precision:.4f}")
+print(f"Test Recall: {test_recall:.4f}")
+plot_graphs(train_losses, val_f1_scores)
+
+"""
+# Run GAT model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # in_feats = train_dataset.num_node_features
 # out_feats = train_dataset.num_classes
